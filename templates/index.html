@@ -669,6 +669,201 @@
                 margin-bottom: 8px;
             }
         }
+        /* =====================================================
+           QR CODE LOGIN MODAL STYLES
+           ===================================================== */
+        .qr-modal-content {
+            max-width: 520px !important;
+        }
+
+        .qr-step {
+            display: none;
+        }
+        .qr-step.active {
+            display: block;
+        }
+
+        /* Step 1 — form header */
+        .qr-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #2196F3, #7C3AED);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        /* Step 2 — QR display */
+        .qr-display-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        .qr-frame {
+            width: 240px;
+            height: 240px;
+            border: 3px solid #2196F3;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            background: white;
+            box-shadow: 0 8px 24px rgba(33,150,243,0.18);
+            position: relative;
+            transition: box-shadow 0.3s;
+        }
+
+        .qr-frame:hover {
+            box-shadow: 0 12px 32px rgba(33,150,243,0.28);
+        }
+
+        .qr-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        .qr-frame img.loaded {
+            display: block;
+        }
+
+        .qr-spinner-wrap {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .qr-spinner-wrap.hidden {
+            display: none;
+        }
+
+        .qr-spinner {
+            width: 44px;
+            height: 44px;
+            border: 4px solid #e0e0e0;
+            border-top: 4px solid #2196F3;
+            border-radius: 50%;
+            animation: qrSpin 0.9s linear infinite;
+        }
+
+        @keyframes qrSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        .qr-spinner-wrap span {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .qr-timer-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .qr-timer-label {
+            font-size: 13px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .qr-timer-progress {
+            flex: 1;
+            height: 5px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            min-width: 80px;
+        }
+
+        .qr-timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #2196F3);
+            border-radius: 3px;
+            transition: width 1s linear;
+            width: 100%;
+        }
+
+        .qr-timer-fill.expiring {
+            background: linear-gradient(90deg, #ff9800, #f44336);
+        }
+
+        .qr-countdown-num {
+            font-weight: 700;
+            color: #2196F3;
+            min-width: 24px;
+            text-align: right;
+        }
+
+        .qr-instructions {
+            background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin: 12px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .qr-instructions p {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1565C0;
+            margin-bottom: 8px;
+        }
+
+        .qr-instructions ol {
+            margin: 0 0 0 18px;
+            font-size: 13px;
+            color: #333;
+            line-height: 1.9;
+        }
+
+        .qr-success-banner {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            background: #e8f5e9;
+            border: 1.5px solid #4CAF50;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: #2e7d32;
+            font-weight: 500;
+        }
+
+        .qr-success-banner.show {
+            display: flex;
+        }
+
+        /* Step 3 — 2FA */
+        .qr-2fa-icon {
+            font-size: 3.5rem;
+            margin-bottom: 10px;
+        }
+
+        /* QR btn style */
+        .btn-qr {
+            background: linear-gradient(135deg, #2196F3, #7C3AED);
+            color: white;
+        }
+        .btn-qr:hover {
+            background: linear-gradient(135deg, #1976D2, #6D28D9);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(33,150,243,0.3);
+        }
     </style>
 </head>
 <body>
@@ -708,6 +903,7 @@
                 <button class="btn btn-primary" onclick="connectAllAccounts()" id="connectBtn">Connect All Accounts</button>
                 <button class="btn btn-danger" onclick="disconnectAllAccounts()">Disconnect All</button>
                 <button class="btn btn-success" onclick="showAddAccountModal()">Add Account</button>
+                <button class="btn btn-qr" onclick="showQrLoginModal()" title="Login with QR code — no SMS needed!">📷 Add via QR</button>
             </div>
 
             <div class="channel-selection-tools">
@@ -828,6 +1024,47 @@
         </div>
     </div>
 
+    <!-- Manage Account Modal -->
+    <div id="manageAccountModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeManageAccountModal()">&times;</span>
+            <div class="modal-header">
+                <h2>⚙️ Manage Account</h2>
+                <p id="manageAccountTitle">Loading...</p>
+            </div>
+            
+            <input type="hidden" id="managePhone">
+
+            <div class="form-group" style="display: flex; gap: 10px; align-items: flex-end;">
+                <div style="flex-grow: 1;">
+                    <label>Account Name:</label>
+                    <input type="text" class="form-control" id="manageName" placeholder="Enter new account name">
+                </div>
+                <button class="btn btn-primary" onclick="manageRenameAccount()">Rename</button>
+            </div>
+
+            <div class="form-group" style="display: flex; gap: 10px; align-items: flex-end; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                <div style="flex-grow: 1;">
+                    <label>Source Channel ID:</label>
+                    <input type="text" class="form-control" id="manageSource" placeholder="-100...">
+                </div>
+                <button class="btn btn-primary" onclick="manageUpdateSource()">Update Source</button>
+            </div>
+
+            <div class="form-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                <label>Target Channels:</label>
+                <div id="manageTargetChannelsList" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                    <!-- Populated via JS -->
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" class="form-control" id="manageNewTarget" placeholder="New Target Channel ID (-100...)" style="flex-grow: 1;">
+                    <button class="btn btn-success" onclick="manageAddTargetChannel()">+ Add</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="addAccountModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeAddAccountModal()">&times;</span>
@@ -913,12 +1150,142 @@
         </div>
     </div>
 
+    <!-- ============================================
+         QR CODE LOGIN MODAL
+         ============================================ -->
+    <div id="qrLoginModal" class="modal">
+        <div class="modal-content qr-modal-content">
+            <span class="close" onclick="closeQrModal()">&#215;</span>
+
+            <!-- ── STEP 1: Credentials ── -->
+            <div id="qrStep1" class="qr-step active">
+                <div class="modal-header">
+                    <div class="qr-badge">📷 QR Code Login</div>
+                    <h2 style="margin-bottom:6px;">Quick Account Setup</h2>
+                    <p>No phone number or SMS needed — just scan!</p>
+                </div>
+
+                <div class="form-group">
+                    <label>Account Name <span style="color:#999;font-weight:400;">(optional)</span></label>
+                    <input type="text" class="form-control" id="qrAccountName" placeholder="e.g. My Main Account">
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label>API ID <span style="color:#f44336;">*</span></label>
+                        <input type="text" class="form-control" id="qrApiId" placeholder="12345678" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>API Hash <span style="color:#f44336;">*</span></label>
+                        <input type="text" class="form-control" id="qrApiHash" placeholder="abc123..." autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Source Channel ID <span style="color:#f44336;">*</span></label>
+                    <input type="text" class="form-control" id="qrSourceChannel" placeholder="-1001234567890">
+                </div>
+
+                <div class="form-group">
+                    <label>Target Channel IDs <span style="color:#f44336;">*</span></label>
+                    <div class="target-channels" id="qrTargetChannels" style="min-height:60px;"></div>
+                    <div class="add-channel-form" style="margin-top:8px;">
+                        <input type="text" class="form-control" id="qrNewChannelInput" placeholder="Enter channel ID" style="flex:1;">
+                        <button class="btn btn-primary" onclick="addQrTargetChannel()">Add</button>
+                    </div>
+                </div>
+
+                <div class="info-box" style="background:#e8f5e9;border-left:4px solid #4CAF50;">
+                    <p style="color:#2e7d32;">ℹ️ Get API ID &amp; Hash from <a href="https://my.telegram.org" target="_blank" style="color:#1565C0;">my.telegram.org</a> → API development tools</p>
+                </div>
+
+                <div class="modal-buttons" style="margin-top:20px;">
+                    <button class="btn btn-qr" onclick="startQrLogin()" id="qrStartBtn">Generate QR Code</button>
+                </div>
+            </div>
+
+            <!-- ── STEP 2: QR Display ── -->
+            <div id="qrStep2" class="qr-step">
+                <div class="modal-header">
+                    <h2>📱 Scan QR Code</h2>
+                    <p>Open Telegram on your phone and scan below</p>
+                </div>
+
+                <div class="qr-display-area">
+                    <!-- QR Frame -->
+                    <div class="qr-frame" id="qrFrame">
+                        <div class="qr-spinner-wrap" id="qrSpinner">
+                            <div class="qr-spinner"></div>
+                            <span>Generating...</span>
+                        </div>
+                        <img id="qrImage" alt="QR Code" onload="onQrImageLoaded()">
+                    </div>
+
+                    <!-- Timer bar -->
+                    <div class="qr-timer-bar" style="width:240px;">
+                        <span class="qr-timer-label">Refreshes in</span>
+                        <div class="qr-timer-progress">
+                            <div class="qr-timer-fill" id="qrTimerFill"></div>
+                        </div>
+                        <span class="qr-countdown-num" id="qrCountdown">30</span><span style="font-size:12px;color:#999;">s</span>
+                    </div>
+
+                    <!-- Instructions -->
+                    <div class="qr-instructions">
+                        <p>📲 How to scan:</p>
+                        <ol>
+                            <li>Open <strong>Telegram</strong> on your phone</li>
+                            <li>Go to <strong>Settings → Devices</strong></li>
+                            <li>Tap <strong>"Scan QR Code"</strong></li>
+                            <li>Point camera at the QR code above</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="modal-buttons">
+                    <button class="btn btn-warning" onclick="cancelQrLoginAndClose()">Cancel</button>
+                </div>
+            </div>
+
+            <!-- ── STEP 3: 2FA Password ── -->
+            <div id="qrStep3" class="qr-step">
+                <div class="modal-header">
+                    <div class="qr-2fa-icon">🔒</div>
+                    <h2>Two-Factor Authentication</h2>
+                    <p>Your account has 2FA enabled. Enter your password to continue.</p>
+                </div>
+
+                <div class="qr-success-banner show" style="margin-bottom:16px;">
+                    <span>✅</span>
+                    <span>QR code scanned successfully! Now enter your 2FA password.</span>
+                </div>
+
+                <div class="form-group">
+                    <label>2FA Password:</label>
+                    <input type="password" class="form-control auth-input-large" id="qr2faPassword"
+                           placeholder="Enter your 2FA password" autocomplete="current-password">
+                </div>
+
+                <div class="modal-buttons">
+                    <button class="btn btn-qr" onclick="submitQr2fa()" id="qr2faBtn">Confirm</button>
+                    <button class="btn btn-warning" onclick="cancelQrLoginAndClose()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const socket = io();
         let targetChannels = [];
         let currentAuthPhone = '';
         let currentAuthStep = '';
         let connectionInProgress = false;
+
+        // QR Login state
+        let currentQrSessionId = null;
+        let qrCountdownInterval = null;
+        let qrCountdownSeconds = 30;
+        let qrTargetChannelsList = [];
 
         function updateServerTime() {
             fetch('/api/server-time')
@@ -965,6 +1332,153 @@
                     }
                 }, 300);
             }, 4000);
+        }
+
+        // --- Manage Account Modal Functions ---
+        function showManageAccountModal(phone) {
+            document.getElementById('manageAccountModal').classList.add('show');
+            document.getElementById('manageAccountTitle').innerHTML = `Account: <strong>${phone}</strong>... Loading details...`;
+            document.getElementById('managePhone').value = phone;
+            document.getElementById('manageName').value = '';
+            document.getElementById('manageSource').value = '';
+            document.getElementById('manageTargetChannelsList').innerHTML = '<p>Loading...</p>';
+            
+            fetch(`/api/accounts/${encodeURIComponent(phone)}/channels`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const acc = data.account;
+                        document.getElementById('manageAccountTitle').innerHTML = `Account: <strong>${acc.name || acc.phone}</strong> (${acc.status})`;
+                        document.getElementById('manageName').value = acc.name || '';
+                        document.getElementById('manageSource').value = acc.source_channel || '';
+                        
+                        let html = '';
+                        if (acc.target_channels && acc.target_channels.length > 0) {
+                            acc.target_channels.forEach(ch => {
+                                html += `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">
+                                    <span>${ch}</span>
+                                    <button class="btn btn-danger" style="padding: 2px 8px; font-size: 12px; margin: 0;" onclick="manageRemoveTargetChannel('${ch}')">× Remove</button>
+                                </div>`;
+                            });
+                        } else {
+                            html = '<p style="color: #888;">No target channels set.</p>';
+                        }
+                        document.getElementById('manageTargetChannelsList').innerHTML = html;
+                    } else {
+                        document.getElementById('manageAccountTitle').innerHTML = `<span style="color: red;">Error: ${data.error}</span>`;
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('manageAccountTitle').innerHTML = `<span style="color: red;">Error loading account info.</span>`;
+                });
+        }
+
+        function closeManageAccountModal() {
+            document.getElementById('manageAccountModal').classList.remove('show');
+            // Refresh accounts data after closing manage modal
+            loadAccounts();
+        }
+
+        function manageRenameAccount() {
+            const phone = document.getElementById('managePhone').value;
+            const newName = document.getElementById('manageName').value.trim();
+            if (!newName) {
+                showNotification('Account name cannot be empty!', 'error');
+                return;
+            }
+            
+            fetch(`/api/accounts/${encodeURIComponent(phone)}/rename`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: newName})
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    showManageAccountModal(phone); // Refresh
+                } else {
+                    showNotification(data.error || 'Failed to rename account', 'error');
+                }
+            }).catch(err => {
+                showNotification('Error renaming account: ' + err.message, 'error');
+            });
+        }
+
+        function manageUpdateSource() {
+            const phone = document.getElementById('managePhone').value;
+            const source = document.getElementById('manageSource').value.trim();
+            if (!source) {
+                showNotification('Source channel ID cannot be empty!', 'error');
+                return;
+            }
+            if (!/^-?\d+$/.test(source)) {
+                showNotification('Source channel ID must be a number!', 'error');
+                return;
+            }
+            
+            fetch(`/api/accounts/${encodeURIComponent(phone)}/source`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({source_channel: source})
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    showManageAccountModal(phone);
+                } else {
+                    showNotification(data.error || 'Failed to update source channel', 'error');
+                }
+            }).catch(err => {
+                showNotification('Error updating source: ' + err.message, 'error');
+            });
+        }
+
+        function manageAddTargetChannel() {
+            const phone = document.getElementById('managePhone').value;
+            const newTarget = document.getElementById('manageNewTarget').value.trim();
+            if (!newTarget) {
+                showNotification('Target channel ID cannot be empty!', 'error');
+                return;
+            }
+            if (!/^-?\d+$/.test(newTarget)) {
+                showNotification('Target channel ID must be a number (can start with -)!', 'error');
+                return;
+            }
+            
+            fetch(`/api/accounts/${encodeURIComponent(phone)}/channels/add`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({channels: [newTarget]})
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    document.getElementById('manageNewTarget').value = '';
+                    showManageAccountModal(phone);
+                } else {
+                    showNotification(data.error || 'Failed to add target channel', 'error');
+                }
+            }).catch(err => {
+                showNotification('Error adding channel: ' + err.message, 'error');
+            });
+        }
+
+        function manageRemoveTargetChannel(channelId) {
+            if (!confirm(`Are you sure you want to remove target channel ${channelId}?`)) return;
+            const phone = document.getElementById('managePhone').value;
+            
+            fetch(`/api/accounts/${encodeURIComponent(phone)}/channels/remove`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({channels: [channelId]})
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    showManageAccountModal(phone);
+                } else {
+                    showNotification(data.error || 'Failed to remove target channel', 'error');
+                }
+            }).catch(err => {
+                showNotification('Error removing channel: ' + err.message, 'error');
+            });
         }
 
         function showAddAccountModal() {
@@ -1087,8 +1601,8 @@
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.className = 'remove-channel-checkbox';
-                    checkbox.value = `${account.phone}_${channel}`;
-                    checkbox.id = `remove_${account.phone}_${channel}`;
+                    checkbox.value = `${account.phone}|||${channel}`;
+                    checkbox.id = `remove_${account.phone}|||${channel}`;
                     
                     const label = document.createElement('label');
                     label.htmlFor = checkbox.id;
@@ -1114,7 +1628,9 @@
             
             const selectedChannels = {};
             checkboxes.forEach(checkbox => {
-                const [phone, channel] = checkbox.value.split('_');
+                const parts = checkbox.value.split('|||');
+                const phone = parts[0];
+                const channel = parts.slice(1).join('|||');
                 if (!selectedChannels[phone]) {
                     selectedChannels[phone] = [];
                 }
@@ -1455,7 +1971,9 @@
             const checkboxes = document.querySelectorAll('.channel-checkbox:checked');
             
             checkboxes.forEach(checkbox => {
-                const [phone, channel] = checkbox.value.split('_');
+                const parts = checkbox.value.split('|||');
+                const phone = parts[0];
+                const channel = parts.slice(1).join('|||');
                 if (!selected[phone]) {
                     selected[phone] = [];
                 }
@@ -1623,7 +2141,7 @@
                     `${account.target_channels.slice(0, 2).join(', ')}... (+${account.target_channels.length - 2})`;
                 
                 const channelCheckboxes = account.target_channels.map(channel => 
-                    `<label><input type="checkbox" class="account-channel-checkbox" value="${account.phone}_${channel}"> ${channel}</label>`
+                    `<label><input type="checkbox" class="account-channel-checkbox" value="${account.phone}|||${channel}"> ${channel}</label>`
                 ).join('<br>');
                 
                 const accountDisplay = account.name && account.name !== account.phone ?
@@ -1641,6 +2159,7 @@
                     <td>${targetChannelsDisplay} (${account.target_channels.length})</td>
                     <td><span class="status-badge ${statusClass}">${account.status}</span></td>
                     <td>
+                        <button class="btn btn-primary" onclick="showManageAccountModal('${account.phone}')" style="background-color: #607D8B;">⚙️ Manage</button>
                         <button class="btn btn-danger" onclick="removeAccount('${account.phone}')">Remove</button>
                     </td>
                 `;
@@ -1705,8 +2224,8 @@
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.className = 'channel-checkbox';
-                    checkbox.value = `${account.phone}_${channel}`;
-                    checkbox.id = `${account.phone}_${channel}`;
+                    checkbox.value = `${account.phone}|||${channel}`;
+                    checkbox.id = `sched_${account.phone}|||${channel}`;
 
                     const label = document.createElement('label');
                     label.htmlFor = checkbox.id;
@@ -1842,10 +2361,78 @@
             updateScheduledPostsTable(posts);
         });
 
+        // =====================================================
+        // QR CODE LOGIN — Socket events
+        // =====================================================
+
+        socket.on('qr_code_generated', (data) => {
+            if (data.session_id !== currentQrSessionId) return;
+            document.getElementById('qrImage').src = 'data:image/png;base64,' + data.qr_image;
+            startQrCountdown();
+        });
+
+        socket.on('qr_code_updated', (data) => {
+            if (data.session_id !== currentQrSessionId) return;
+            document.getElementById('qrImage').src = 'data:image/png;base64,' + data.qr_image;
+            startQrCountdown();
+        });
+
+        socket.on('qr_login_success', (data) => {
+            if (data.session_id !== currentQrSessionId) return;
+            stopQrCountdown();
+            currentQrSessionId = null;
+            document.getElementById('qrLoginModal').classList.remove('show');
+            clearQrForm();
+            showNotification(`✅ Login successful: ${data.name} (${data.phone})`, 'success');
+            loadAccounts();
+        });
+
+        socket.on('qr_2fa_required', (data) => {
+            if (data.session_id !== currentQrSessionId) return;
+            stopQrCountdown();
+            showQrStep(3);
+            setTimeout(() => {
+                const pw = document.getElementById('qr2faPassword');
+                if (pw) { pw.value = ''; pw.focus(); }
+            }, 200);
+        });
+
+        socket.on('qr_login_error', (data) => {
+            if (data.session_id !== currentQrSessionId) return;
+            stopQrCountdown();
+            showNotification('QR Error: ' + data.error, 'error');
+            currentQrSessionId = null;
+            // Go back to step 1 so user can retry
+            showQrStep(1);
+            const btn = document.getElementById('qrStartBtn');
+            if (btn) { btn.disabled = false; btn.textContent = 'Generate QR Code'; }
+        });
+
         document.getElementById('newChannelInput').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 addTargetChannel();
+            }
+        });
+
+        document.getElementById('manageNewTarget').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                manageAddTargetChannel();
+            }
+        });
+
+        document.getElementById('manageSource').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                manageUpdateSource();
+            }
+        });
+
+        document.getElementById('manageName').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                manageRenameAccount();
             }
         });
 
@@ -1854,6 +2441,20 @@
                 e.preventDefault();
                 submitAuth();
             }
+        });
+
+        // QR modal keyboard shortcuts
+        document.getElementById('qrNewChannelInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); addQrTargetChannel(); }
+        });
+        document.getElementById('qr2faPassword').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); submitQr2fa(); }
+        });
+        document.getElementById('qrApiId').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); document.getElementById('qrApiHash').focus(); }
+        });
+        document.getElementById('qrApiHash').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); document.getElementById('qrSourceChannel').focus(); }
         });
 
         // Disabled ESC key and backdrop click to close modals
@@ -1903,6 +2504,225 @@
 
         loadAccounts();
         loadScheduledPosts();
+
+        // =====================================================
+        // QR CODE LOGIN — Functions
+        // =====================================================
+
+        function showQrLoginModal() {
+            currentQrSessionId = null;
+            qrTargetChannelsList = [];
+            clearQrForm();
+            showQrStep(1);
+            document.getElementById('qrLoginModal').classList.add('show');
+            setTimeout(() => document.getElementById('qrApiId').focus(), 300);
+        }
+
+        function closeQrModal() {
+            document.getElementById('qrLoginModal').classList.remove('show');
+        }
+
+        function cancelQrLoginAndClose() {
+            if (currentQrSessionId) {
+                fetch('/api/qr/cancel', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({session_id: currentQrSessionId})
+                }).catch(() => {});
+                currentQrSessionId = null;
+            }
+            stopQrCountdown();
+            closeQrModal();
+        }
+
+        function clearQrForm() {
+            ['qrAccountName','qrApiId','qrApiHash','qrSourceChannel','qr2faPassword'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            qrTargetChannelsList = [];
+            updateQrTargetChannelsDisplay();
+            // Reset QR image
+            const img = document.getElementById('qrImage');
+            if (img) { img.src = ''; img.classList.remove('loaded'); }
+            const spinner = document.getElementById('qrSpinner');
+            if (spinner) spinner.classList.remove('hidden');
+            const btn = document.getElementById('qrStartBtn');
+            if (btn) { btn.disabled = false; btn.textContent = 'Generate QR Code'; }
+        }
+
+        function showQrStep(step) {
+            document.querySelectorAll('.qr-step').forEach(el => el.classList.remove('active'));
+            const target = document.getElementById('qrStep' + step);
+            if (target) target.classList.add('active');
+        }
+
+        function addQrTargetChannel() {
+            const input = document.getElementById('qrNewChannelInput');
+            const channel = input.value.trim();
+            if (!channel) { showNotification('Enter channel ID!', 'error'); return; }
+            if (!/^-?\d+$/.test(channel)) { showNotification('Channel ID must be a number!', 'error'); return; }
+            if (qrTargetChannelsList.includes(channel)) { showNotification('Already added!', 'error'); return; }
+            qrTargetChannelsList.push(channel);
+            input.value = '';
+            updateQrTargetChannelsDisplay();
+        }
+
+        function removeQrTargetChannel(channel) {
+            qrTargetChannelsList = qrTargetChannelsList.filter(c => c !== channel);
+            updateQrTargetChannelsDisplay();
+        }
+
+        function updateQrTargetChannelsDisplay() {
+            const container = document.getElementById('qrTargetChannels');
+            if (!container) return;
+            container.innerHTML = '';
+            qrTargetChannelsList.forEach(channel => {
+                const tag = document.createElement('div');
+                tag.className = 'channel-tag';
+                tag.innerHTML = `${channel} <span class="remove" onclick="removeQrTargetChannel('${channel}')">&times;</span>`;
+                container.appendChild(tag);
+            });
+        }
+
+        async function startQrLogin() {
+            const apiId = document.getElementById('qrApiId').value.trim();
+            const apiHash = document.getElementById('qrApiHash').value.trim();
+            const name = document.getElementById('qrAccountName').value.trim();
+            const sourceChannel = document.getElementById('qrSourceChannel').value.trim();
+
+            if (!apiId || !apiHash) {
+                showNotification('API ID and API Hash are required!', 'error');
+                return;
+            }
+            if (!sourceChannel) {
+                showNotification('Source Channel ID is required!', 'error');
+                return;
+            }
+            if (qrTargetChannelsList.length === 0) {
+                showNotification('Add at least one target channel!', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('qrStartBtn');
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
+
+            try {
+                const response = await fetch('/api/qr/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        api_id: apiId,
+                        api_hash: apiHash,
+                        name: name,
+                        source_channel: sourceChannel,
+                        target_channels: qrTargetChannelsList,
+                    })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    currentQrSessionId = result.session_id;
+                    // Switch to QR display step
+                    showQrStep(2);
+                    // Reset spinner
+                    const img = document.getElementById('qrImage');
+                    if (img) { img.classList.remove('loaded'); }
+                    const spinner = document.getElementById('qrSpinner');
+                    if (spinner) spinner.classList.remove('hidden');
+                } else {
+                    showNotification(result.error, 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Generate QR Code';
+                }
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Generate QR Code';
+            }
+        }
+
+        function onQrImageLoaded() {
+            const img = document.getElementById('qrImage');
+            const spinner = document.getElementById('qrSpinner');
+            if (img) img.classList.add('loaded');
+            if (spinner) spinner.classList.add('hidden');
+        }
+
+        function startQrCountdown() {
+            stopQrCountdown();
+            qrCountdownSeconds = 30;
+            updateQrCountdownDisplay();
+
+            qrCountdownInterval = setInterval(() => {
+                qrCountdownSeconds--;
+                updateQrCountdownDisplay();
+                if (qrCountdownSeconds <= 0) {
+                    stopQrCountdown();
+                    document.getElementById('qrCountdown').textContent = '...';
+                    const fill = document.getElementById('qrTimerFill');
+                    if (fill) fill.style.width = '0%';
+                }
+            }, 1000);
+        }
+
+        function stopQrCountdown() {
+            if (qrCountdownInterval) {
+                clearInterval(qrCountdownInterval);
+                qrCountdownInterval = null;
+            }
+        }
+
+        function updateQrCountdownDisplay() {
+            const countEl = document.getElementById('qrCountdown');
+            const fillEl = document.getElementById('qrTimerFill');
+            if (countEl) countEl.textContent = qrCountdownSeconds;
+            if (fillEl) {
+                const pct = (qrCountdownSeconds / 30) * 100;
+                fillEl.style.width = pct + '%';
+                if (qrCountdownSeconds <= 8) {
+                    fillEl.classList.add('expiring');
+                } else {
+                    fillEl.classList.remove('expiring');
+                }
+            }
+        }
+
+        async function submitQr2fa() {
+            const password = document.getElementById('qr2faPassword').value;
+            if (!password) {
+                showNotification('Enter your 2FA password!', 'error');
+                document.getElementById('qr2faPassword').focus();
+                return;
+            }
+
+            const btn = document.getElementById('qr2faBtn');
+            btn.disabled = true;
+            btn.textContent = 'Verifying...';
+
+            try {
+                const response = await fetch('/api/qr/2fa', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session_id: currentQrSessionId,
+                        password: password,
+                    })
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    showNotification(result.error, 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Confirm';
+                }
+                // On success, qr_login_success event will fire
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Confirm';
+            }
+        }
     </script>
 </body>
 </html>

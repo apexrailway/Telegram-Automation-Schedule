@@ -71,7 +71,19 @@ class DatabaseManager:
                 # Fallback to SQLite for local development
                 database_url = 'sqlite:///telegram_forwarder.db'
 
-        self.engine = create_engine(database_url, echo=False)
+        if 'sqlite' in database_url:
+            self.engine = create_engine(
+                database_url,
+                echo=False,
+                connect_args={'check_same_thread': False, 'timeout': 30}
+            )
+        else:
+            self.engine = create_engine(
+                database_url,
+                echo=False,
+                pool_pre_ping=True,
+                pool_recycle=3600
+            )
         self.database_url = database_url
 
         # Create tables if they don't exist
