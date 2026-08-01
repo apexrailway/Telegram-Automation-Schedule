@@ -873,10 +873,10 @@
         </div>
 
         <div class="tabs">
-            <button class="tab active" onclick="showTab('control')">Control Panel</button>
-            <button class="tab" onclick="showTab('monitor')">Message Monitor</button>
-            <button class="tab" onclick="showTab('scheduler')">Scheduled Posts</button>
-            <button class="tab" onclick="showTab('logs')">Logs</button>
+            <button class="tab active" onclick="showTab('control', event)">Control Panel</button>
+            <button class="tab" onclick="showTab('monitor', event)">Message Monitor</button>
+            <button class="tab" onclick="showTab('scheduler', event)">Scheduled Posts</button>
+            <button class="tab" onclick="showTab('logs', event)">Logs</button>
         </div>
 
         <div id="control" class="tab-content active">
@@ -1270,6 +1270,12 @@
         let qrCountdownSeconds = 30;
         let qrTargetChannelsList = [];
 
+        function getUTC2Now() {
+            const now = new Date();
+            const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+            return new Date(utcMs + (2 * 3600000));
+        }
+
         function updateServerTime() {
             fetch('/api/server-time')
                 .then(response => response.json())
@@ -1278,17 +1284,19 @@
                     document.getElementById('serverDate').textContent = data.formatted_date;
                 })
                 .catch(error => {
-                    const utcPlus1 = new Date();
-                    utcPlus1.setHours(utcPlus1.getHours() + 2);
-                    const timeStr = utcPlus1.toLocaleTimeString('en-US', { hour12: false });
-                    const dateStr = utcPlus1.toLocaleDateString('en-GB');
+                    const utc2 = getUTC2Now();
+                    const timeStr = utc2.toTimeString().slice(0, 8);
+                    const day = String(utc2.getDate()).padStart(2, '0');
+                    const month = String(utc2.getMonth() + 1).padStart(2, '0');
+                    const year = utc2.getFullYear();
+                    const dateStr = `${day}/${month}/${year}`;
                     
                     document.getElementById('serverTime').textContent = timeStr;
                     document.getElementById('serverDate').textContent = dateStr;
                 });
         }
 
-        function showTab(tabName) {
+        function showTab(tabName, e) {
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
@@ -1297,7 +1305,9 @@
             });
             
             document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
+            if (e && e.target) {
+                e.target.classList.add('active');
+            }
         }
 
         function showNotification(message, type = 'info') {
@@ -2370,9 +2380,12 @@
         updateServerTime();
         setInterval(updateServerTime, 1000);
 
-        const today = new Date();
-        today.setHours(today.getHours() + 1);
-        document.getElementById('scheduledDate').valueAsDate = today;
+        // Set default date to today in UTC+2 timezone
+        const utc2Now = getUTC2Now();
+        const yyyy = utc2Now.getFullYear();
+        const mm = String(utc2Now.getMonth() + 1).padStart(2, '0');
+        const dd = String(utc2Now.getDate()).padStart(2, '0');
+        document.getElementById('scheduledDate').value = `${yyyy}-${mm}-${dd}`;
 
         loadAccounts();
         loadScheduledPosts();

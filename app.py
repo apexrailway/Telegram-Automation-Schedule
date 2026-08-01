@@ -11,6 +11,7 @@ import qrcode
 import io
 import base64
 import copy
+import functools
 from datetime import datetime, timedelta, timezone
 import logging
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
@@ -97,30 +98,16 @@ class AuthManager:
             return None
     
     def verify_credentials(self, username, password):
-        print(f"\n=== CREDENTIAL VERIFICATION ===")
-        print(f"Input username: {repr(username)}")
-        print(f"Input password: {repr(password)}")
-        
         credentials = self.load_credentials()
         
         if credentials is None:
             print("ERROR: No credentials loaded from file")
             return False
         
-        print(f"File username: {repr(credentials['login'])}")
-        print(f"File password: {repr(credentials['password'])}")
-        
         username_match = username == credentials['login']
         password_match = password == credentials['password']
         
-        print(f"Username match: {username_match}")
-        print(f"Password match: {password_match}")
-        
-        result = username_match and password_match
-        print(f"Final result: {result}")
-        print("=== END VERIFICATION ===\n")
-        
-        return result
+        return username_match and password_match
 
 class WebTelegramForwarder:
     def __init__(self):
@@ -162,6 +149,9 @@ class WebTelegramForwarder:
         self.max_history_size = 500
 
         self.entity_cache = {}
+
+        # Thread lock for protecting shared state accessed from both Flask and async threads
+        self.state_lock = threading.Lock()
 
         logging.basicConfig(
             format='%(asctime)s - %(levelname)s - %(message)s',
@@ -240,8 +230,6 @@ class WebTelegramForwarder:
             full_message = f"[{timestamp}] [SYSTEM] {message}"
         
         self.log_history.append(full_message)
-        if len(self.log_history) > self.max_history_size:
-            self.log_history = self.log_history[-self.max_history_size:]
         
         try:
             socketio.emit('log_message', {'message': full_message})
@@ -251,6 +239,7 @@ class WebTelegramForwarder:
         try:
             print(full_message)
         except Exception:
+
             try:
                 print(full_message.encode('ascii', errors='replace').decode('ascii'))
             except Exception:
@@ -265,17 +254,16 @@ class WebTelegramForwarder:
             full_message = f"[{timestamp}] [MONITOR] {message}"
         
         self.monitor_history.append(full_message)
-        if len(self.monitor_history) > self.max_history_size:
-            self.monitor_history = self.monitor_history[-self.max_history_size:]
         
         try:
             socketio.emit('monitor_message', {'message': full_message})
-        except:
+        except Exception:
             pass
         
         try:
             print(full_message)
         except Exception:
+
             try:
                 print(full_message.encode('ascii', errors='replace').decode('ascii'))
             except Exception:
@@ -288,17 +276,17 @@ class WebTelegramForwarder:
         return '\n'.join(self.monitor_history) if self.monitor_history else 'Monitor ready... Connect accounts and start monitoring to see message IDs.'
     
     def clear_log_history(self):
-        self.log_history = []
+        self.log_history.clear()
         try:
             socketio.emit('clear_logs', {})
-        except:
+        except Exception:
             pass
     
     def clear_monitor_history(self):
-        self.monitor_history = []
+        self.monitor_history.clear()
         try:
             socketio.emit('clear_monitor', {})
-        except:
+        except Exception:
             pass
 
     async def save_session_to_db(self, phone, session_string):
@@ -334,17 +322,17 @@ class WebTelegramForwarder:
             except Exception as e:
                 if "Could not find the input entity" in str(e) or "No user has" in str(e):
                     try:
-                        entity = await client.get_entity(PeerChannel(-entity_id - 1000000000000))
+                        entity = await client.get_entity(PeerChannel(abs(entity_id) % 1000000000000))
                         self.entity_cache[cache_key] = entity
                         return entity
-                    except:
+                    except Exception:
                         pass
                     
                     try:
                         entity = await client.get_entity(PeerChat(-entity_id))
                         self.entity_cache[cache_key] = entity
                         return entity
-                    except:
+                    except Exception:
                         pass
                 
                 self.log_message(f"Entity not found or access denied: {entity_id}", phone)
@@ -480,7 +468,8 @@ class WebTelegramForwarder:
             try:
                 socketio.emit('scheduled_posts_updated', self.get_scheduled_posts_data())
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
 
             return {"success": True, "message": f"{account_phone} account removed!"}
@@ -522,7 +511,8 @@ class WebTelegramForwarder:
 
             try:
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
 
             return {"success": True, "message": f"Removed {removed_count} channels successfully!"}
@@ -617,7 +607,8 @@ class WebTelegramForwarder:
 
             try:
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
 
             msg = f"Added {len(added)} channel(s)."
@@ -663,7 +654,8 @@ class WebTelegramForwarder:
 
             try:
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
 
             return {
@@ -718,7 +710,8 @@ class WebTelegramForwarder:
 
             try:
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
 
             return {"success": True, "message": f"Source channel updated to {new_source_str}"}
@@ -748,7 +741,8 @@ class WebTelegramForwarder:
 
             try:
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
 
             return {"success": True, "message": f"Account renamed to '{new_name}'"}
@@ -760,8 +754,9 @@ class WebTelegramForwarder:
             db.close()
     
     def get_accounts_data(self):
-        db = self.db_manager.get_session()
+        db = None
         try:
+            db = self.db_manager.get_session()
             accounts = db.query(Account).all()
             accounts_data = []
             status_changed = False
@@ -792,6 +787,7 @@ class WebTelegramForwarder:
                 try:
                     db.commit()
                 except Exception:
+
                     db.rollback()
 
             return {
@@ -802,17 +798,19 @@ class WebTelegramForwarder:
 
         except Exception as e:
             self.logger.error(f"Error getting accounts data: {e}")
-            try:
-                db.rollback()
-            except:
-                pass
+            if db is not None:
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
             return {
                 'accounts': [],
                 'total_accounts': 0,
                 'connected_accounts': 0
             }
         finally:
-            db.close()
+            if db is not None:
+                db.close()
     
     def get_auth_status(self):
         if self.pending_auth:
@@ -854,7 +852,7 @@ class WebTelegramForwarder:
                     'total': len(accounts_list),
                     'status': 'Starting sequential connection...'
                 })
-            except:
+            except Exception:
                 pass
 
             asyncio.run_coroutine_threadsafe(self.connect_accounts_sequentially(), self.loop)
@@ -883,7 +881,7 @@ class WebTelegramForwarder:
                     'total': len(self.connection_queue),
                     'status': f"Connecting {phone}..."
                 })
-            except:
+            except Exception:
                 pass
             
             try:
@@ -900,7 +898,7 @@ class WebTelegramForwarder:
                             'status': f"Authentication required for {phone}. Process paused.",
                             'paused': True
                         })
-                    except:
+                    except Exception:
                         pass
                     return
                     
@@ -919,7 +917,8 @@ class WebTelegramForwarder:
             
             try:
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
             
             if index < len(self.connection_queue) - 1:
@@ -936,7 +935,8 @@ class WebTelegramForwarder:
         try:
             socketio.emit('connection_progress', {'current': 0, 'total': 0, 'status': 'Process cancelled', 'finished': True})
             socketio.emit('accounts_updated', self.get_accounts_data())
-        except:
+
+        except Exception:
             pass
         return {"success": True, "message": "Connection process cancelled"}
 
@@ -957,7 +957,7 @@ class WebTelegramForwarder:
             })
 
             socketio.emit('accounts_updated', self.get_accounts_data())
-        except:
+        except Exception:
             pass
 
         # Auto-start scheduler if there are pending posts and accounts are connected
@@ -971,7 +971,8 @@ class WebTelegramForwarder:
                     asyncio.run_coroutine_threadsafe(self.run_scheduler(), self.loop)
                     try:
                         socketio.emit('scheduler_status', {'running': True})
-                    except:
+
+                    except Exception:
                         pass
             except Exception as e:
                 self.logger.error(f"Error checking pending posts: {e}")
@@ -1026,14 +1027,16 @@ class WebTelegramForwarder:
                     if db_acc:
                         db_acc.status = 'Auth Expired'
                         db.commit()
-                except:
+
+                except Exception:
                     pass
                 finally:
                     db.close()
 
                 try:
                     socketio.emit('accounts_updated', self.get_accounts_data())
-                except:
+
+                except Exception:
                     pass
 
                 return 'auth_expired'
@@ -1123,14 +1126,16 @@ class WebTelegramForwarder:
                             if db_acc:
                                 db_acc.status = 'Auth Expired'
                                 db.commit()
-                        except:
+
+                        except Exception:
                             pass
                         finally:
                             db.close()
                             
                         try:
                             socketio.emit('accounts_updated', self.get_accounts_data())
-                        except:
+
+                        except Exception:
                             pass
                             
                         return 'auth_expired'
@@ -1178,7 +1183,8 @@ class WebTelegramForwarder:
             try:
                 socketio.emit('auth_success', {'phone': phone})
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
 
             if self.connection_paused and self.connection_in_progress:
@@ -1196,7 +1202,8 @@ class WebTelegramForwarder:
                     'phone': phone,
                     'step': 'password'
                 })
-            except:
+
+            except Exception:
                 pass
             
         except Exception as e:
@@ -1214,7 +1221,7 @@ class WebTelegramForwarder:
                     'error': error_msg
                 })
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+            except Exception:
                 pass
             
             if self.connection_paused and self.connection_in_progress:
@@ -1255,7 +1262,8 @@ class WebTelegramForwarder:
             try:
                 socketio.emit('auth_success', {'phone': phone})
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
 
             if self.connection_paused and self.connection_in_progress:
@@ -1276,7 +1284,7 @@ class WebTelegramForwarder:
                     'error': str(e)
                 })
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+            except Exception:
                 pass
             
             if self.connection_paused and self.connection_in_progress:
@@ -1316,7 +1324,7 @@ class WebTelegramForwarder:
                     'total': len(self.connection_queue),
                     'status': f"Connecting {phone}..."
                 })
-            except:
+            except Exception:
                 pass
             
             try:
@@ -1333,7 +1341,7 @@ class WebTelegramForwarder:
                             'status': f"Authentication required for {phone}. Process paused.",
                             'paused': True
                         })
-                    except:
+                    except Exception:
                         pass
                     return
                     
@@ -1352,7 +1360,8 @@ class WebTelegramForwarder:
             
             try:
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+
+            except Exception:
                 pass
             
             if index < len(self.connection_queue) - 1:
@@ -1379,7 +1388,8 @@ class WebTelegramForwarder:
         
         try:
             socketio.emit('monitor_status', {'running': True})
-        except:
+
+        except Exception:
             pass
         return {"success": True, "message": "Message monitoring started"}
     
@@ -1397,7 +1407,8 @@ class WebTelegramForwarder:
         
         try:
             socketio.emit('monitor_status', {'running': False})
-        except:
+
+        except Exception:
             pass
         return {"success": True, "message": "Message monitoring stopped"}
     
@@ -1511,12 +1522,12 @@ class WebTelegramForwarder:
                 asyncio.run_coroutine_threadsafe(self.run_scheduler(), self.loop)
                 try:
                     socketio.emit('scheduler_status', {'running': True})
-                except:
+                except Exception:
                     pass
 
             try:
                 socketio.emit('scheduled_posts_updated', self.get_scheduled_posts_data())
-            except:
+            except Exception:
                 pass
 
             return {"success": True, "message": f"Post scheduled! Time: {display_time.strftime('%d.%m.%Y %H:%M')}, Channels: {total_channels}"}
@@ -1578,7 +1589,8 @@ class WebTelegramForwarder:
 
             try:
                 socketio.emit('scheduled_posts_updated', self.get_scheduled_posts_data())
-            except:
+
+            except Exception:
                 pass
 
             return {"success": True, "message": "Scheduled post removed"}
@@ -1622,7 +1634,8 @@ class WebTelegramForwarder:
 
         try:
             socketio.emit('scheduler_status', {'running': True})
-        except:
+
+        except Exception:
             pass
         return {"success": True, "message": f"Scheduler started - {pending_count} pending posts"}
     
@@ -1679,7 +1692,8 @@ class WebTelegramForwarder:
         self.log_message("Scheduler stopped")
         try:
             socketio.emit('scheduler_status', {'running': False})
-        except:
+
+        except Exception:
             pass
     
     async def send_scheduled_post(self, post):
@@ -1707,7 +1721,8 @@ class WebTelegramForwarder:
 
             try:
                 socketio.emit('scheduled_posts_updated', self.get_scheduled_posts_data())
-            except:
+
+            except Exception:
                 pass
 
             self.log_message(f"Starting to send scheduled post: Message ID {post['post']}")
@@ -1812,7 +1827,8 @@ class WebTelegramForwarder:
 
             try:
                 socketio.emit('scheduled_posts_updated', self.get_scheduled_posts_data())
-            except:
+
+            except Exception:
                 pass
 
         except Exception as e:
@@ -1829,7 +1845,8 @@ class WebTelegramForwarder:
             self.log_message(f"Scheduled post general error: {str(e)}")
             try:
                 socketio.emit('scheduled_posts_updated', self.get_scheduled_posts_data())
-            except:
+
+            except Exception:
                 pass
     
     async def send_single_scheduled_post(self, client, post_input, target_channel, phone):
@@ -1952,7 +1969,8 @@ class WebTelegramForwarder:
                     'session_id': session_id,
                     'qr_image': qr_image,
                 })
-            except:
+
+            except Exception:
                 pass
 
             self.log_message(f"QR code generated for session {session_id[:8]}")
@@ -1969,7 +1987,8 @@ class WebTelegramForwarder:
                     'session_id': session_id,
                     'error': 'Connection timeout. Check your internet connection.'
                 })
-            except:
+
+            except Exception:
                 pass
         except Exception as e:
             self.log_message(f"QR login start error: {str(e)}")
@@ -1978,7 +1997,8 @@ class WebTelegramForwarder:
                     'session_id': session_id,
                     'error': f'Failed to start QR login: {str(e)}'
                 })
-            except:
+
+            except Exception:
                 pass
 
     async def wait_for_qr_scan(self, session_id):
@@ -2014,7 +2034,8 @@ class WebTelegramForwarder:
                             'session_id': session_id,
                             'qr_image': qr_image,
                         })
-                    except:
+
+                    except Exception:
                         pass
                 except asyncio.CancelledError:
                     return
@@ -2025,7 +2046,8 @@ class WebTelegramForwarder:
                             'session_id': session_id,
                             'error': f'QR code expired and could not be refreshed: {str(e)}'
                         })
-                    except:
+
+                    except Exception:
                         pass
                     if session_id in self.pending_qr_sessions:
                         del self.pending_qr_sessions[session_id]
@@ -2043,7 +2065,8 @@ class WebTelegramForwarder:
                     self.log_message(f"QR login: 2FA required for session {session_id[:8]}")
                     try:
                         socketio.emit('qr_2fa_required', {'session_id': session_id})
-                    except:
+
+                    except Exception:
                         pass
                 return  # Pause here — wait for password via process_qr_2fa
 
@@ -2055,7 +2078,8 @@ class WebTelegramForwarder:
                         'session_id': session_id,
                         'error': f'QR error: {error_msg}'
                     })
-                except:
+
+                except Exception:
                     pass
                 if session_id in self.pending_qr_sessions:
                     del self.pending_qr_sessions[session_id]
@@ -2068,7 +2092,8 @@ class WebTelegramForwarder:
                 'session_id': session_id,
                 'error': 'QR code login timed out (6 minutes). Please try again.'
             })
-        except:
+
+        except Exception:
             pass
         if session_id in self.pending_qr_sessions:
             del self.pending_qr_sessions[session_id]
@@ -2136,7 +2161,7 @@ class WebTelegramForwarder:
                     'name': display_name,
                 })
                 socketio.emit('accounts_updated', self.get_accounts_data())
-            except:
+            except Exception:
                 pass
 
         except Exception as e:
@@ -2146,7 +2171,8 @@ class WebTelegramForwarder:
                     'session_id': session_id,
                     'error': f'Failed to save account: {str(e)}'
                 })
-            except:
+
+            except Exception:
                 pass
             if session_id in self.pending_qr_sessions:
                 del self.pending_qr_sessions[session_id]
@@ -2159,7 +2185,8 @@ class WebTelegramForwarder:
                     'session_id': session_id,
                     'error': 'Session expired. Please start QR login again.'
                 })
-            except:
+
+            except Exception:
                 pass
             return
 
@@ -2178,29 +2205,30 @@ class WebTelegramForwarder:
                     'session_id': session_id,
                     'error': f'Incorrect 2FA password! Please try again.'
                 })
-            except:
+
+            except Exception:
                 pass
 
     def cancel_qr_login_session(self, session_id):
         """Cancel QR login session, disconnect client, cancel async task"""
-        if session_id and session_id in self.pending_qr_sessions:
-            session_data = self.pending_qr_sessions[session_id]
+        session_data = self.pending_qr_sessions.pop(session_id, None)
+        if not session_data:
+            return
 
-            # Cancel the async wait task
-            task = session_data.get('task')
-            if task and not task.done() and self.loop:
-                self.loop.call_soon_threadsafe(task.cancel)
+        # Cancel the async wait task
+        task = session_data.get('task')
+        if task and not task.done() and self.loop:
+            self.loop.call_soon_threadsafe(task.cancel)
 
-            # Disconnect client
-            client = session_data.get('client')
-            if client and self.loop:
-                try:
-                    asyncio.run_coroutine_threadsafe(client.disconnect(), self.loop)
-                except:
-                    pass
+        # Disconnect client
+        client = session_data.get('client')
+        if client and self.loop:
+            try:
+                asyncio.run_coroutine_threadsafe(client.disconnect(), self.loop)
+            except Exception:
+                pass
 
-            del self.pending_qr_sessions[session_id]
-            self.log_message(f"QR login cancelled: session {session_id[:8]}")
+        self.log_message(f"QR login cancelled: session {session_id[:8]}")
 
     # =========================================================
     # DISCONNECT ALL
@@ -2221,7 +2249,8 @@ class WebTelegramForwarder:
         try:
             socketio.emit('monitor_status', {'running': False})
             socketio.emit('scheduler_status', {'running': False})
-        except:
+
+        except Exception:
             pass
         
         return {"success": True, "message": "Disconnecting all accounts..."}
@@ -2243,10 +2272,10 @@ class WebTelegramForwarder:
         self.pending_auth.clear()
         self.entity_cache.clear()
 
-        # Update all account statuses to 'Disconnected' in database
+        # Update all non-disconnected account statuses to 'Disconnected' in database
         db = self.db_manager.get_session()
         try:
-            accounts = db.query(Account).filter_by(status='Connected').all()
+            accounts = db.query(Account).filter(Account.status != 'Disconnected').all()
             for account in accounts:
                 account.status = 'Disconnected'
             db.commit()
@@ -2258,7 +2287,8 @@ class WebTelegramForwarder:
         
         try:
             socketio.emit('accounts_updated', self.get_accounts_data())
-        except:
+
+        except Exception:
             pass
         self.log_message("All connections disconnected")
     
@@ -2275,11 +2305,11 @@ auth_manager = AuthManager()
 forwarder = WebTelegramForwarder()
 
 def login_required(f):
+    @functools.wraps(f)
     def decorated_function(*args, **kwargs):
         if 'authenticated' not in session or not session['authenticated']:
             return redirect(url_for('login'))
         return f(*args, **kwargs)
-    decorated_function.__name__ = f.__name__
     return decorated_function
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -2288,20 +2318,15 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
         
-        print(f"Login attempt: username='{username}', password='{password}'")
-        
         if not username or not password:
-            print("Empty username or password")
             return render_template('login.html', error='Please fill in all fields')
         
         if auth_manager.verify_credentials(username, password):
-            print("Login successful")
             session['authenticated'] = True
             session['username'] = username
             session.permanent = True
             return redirect(url_for('index'))
         else:
-            print("Invalid credentials")
             return render_template('login.html', error='Invalid username or password')
     
     if 'authenticated' in session and session['authenticated']:
@@ -2451,8 +2476,8 @@ def add_scheduled_post():
         local_datetime = datetime.strptime(data['datetime'], '%Y-%m-%dT%H:%M')
         local_datetime = local_datetime.replace(tzinfo=utc_plus_2)
         target_datetime_utc = local_datetime.astimezone(timezone.utc).replace(tzinfo=None)
-    except:
-        return jsonify({"success": False, "error": "Invalid datetime format"})
+    except (ValueError, KeyError) as e:
+        return jsonify({"success": False, "error": f"Invalid data: {str(e)}"})
     
     result = forwarder.add_scheduled_post(
         data['post'],
@@ -2532,7 +2557,7 @@ def start_qr_login():
                 api_hash = acc.api_hash
                 source_channel = acc.source_channel
                 target_channels = acc.target_channels
-        except:
+        except Exception:
             pass
         finally:
             db.close()
@@ -2619,35 +2644,16 @@ def handle_connect():
         
         emit('log_history', {'history': forwarder.get_log_history()})
         emit('monitor_history', {'history': forwarder.get_monitor_history()})
-        
-        print(f"Client connected: {request.sid}")
-    except Exception as e:
-        print(f"Error in socket connect: {str(e)}")
+    except Exception:
+        pass
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    print(f"Client disconnected: {request.sid}")
+    pass
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    
-    print("="*50)
-    print("STARTING TELEGRAM FORWARDER WITH AUTH")
-    print("="*50)
-    
-    print(f"Current working directory: {os.getcwd()}")
-    print(f"Files in directory: {os.listdir('.')}")
-    
-    auth_test = AuthManager()
-    test_creds = auth_test.load_credentials()
-    if test_creds:
-        print(f"[OK] Credentials loaded successfully")
-        print(f"  Username: {test_creds['login']}")
-        print(f"  Password: {test_creds['password']}")
-    else:
-        print("[FAIL] Failed to load credentials")
-    
-    print("="*50)
+    print(f"\n🚀 Server starting on port {port}")
     
     socketio.run(
         app, 
