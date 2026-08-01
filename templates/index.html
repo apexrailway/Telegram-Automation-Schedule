@@ -1271,29 +1271,40 @@
         let qrTargetChannelsList = [];
 
         function getUTC2Now() {
-            const now = new Date();
-            const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+            var now = new Date();
+            var utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
             return new Date(utcMs + (2 * 3600000));
         }
 
+        function setServerTimeFromLocal() {
+            var utc2 = getUTC2Now();
+            var h = String(utc2.getHours()).padStart(2, '0');
+            var m = String(utc2.getMinutes()).padStart(2, '0');
+            var s = String(utc2.getSeconds()).padStart(2, '0');
+            var day = String(utc2.getDate()).padStart(2, '0');
+            var month = String(utc2.getMonth() + 1).padStart(2, '0');
+            var year = utc2.getFullYear();
+            document.getElementById('serverTime').textContent = h + ':' + m + ':' + s;
+            document.getElementById('serverDate').textContent = day + '/' + month + '/' + year;
+        }
+
         function updateServerTime() {
-            fetch('/api/server-time')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('serverTime').textContent = data.time;
-                    document.getElementById('serverDate').textContent = data.formatted_date;
-                })
-                .catch(error => {
-                    const utc2 = getUTC2Now();
-                    const timeStr = utc2.toTimeString().slice(0, 8);
-                    const day = String(utc2.getDate()).padStart(2, '0');
-                    const month = String(utc2.getMonth() + 1).padStart(2, '0');
-                    const year = utc2.getFullYear();
-                    const dateStr = `${day}/${month}/${year}`;
-                    
-                    document.getElementById('serverTime').textContent = timeStr;
-                    document.getElementById('serverDate').textContent = dateStr;
-                });
+            try {
+                fetch('/api/server-time')
+                    .then(function(response) {
+                        if (!response.ok) throw new Error('API error');
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        document.getElementById('serverTime').textContent = data.time;
+                        document.getElementById('serverDate').textContent = data.formatted_date;
+                    })
+                    .catch(function() {
+                        setServerTimeFromLocal();
+                    });
+            } catch(e) {
+                setServerTimeFromLocal();
+            }
         }
 
         function showTab(tabName, e) {
@@ -2377,15 +2388,19 @@
         });
         */
 
+        // Darhol vaqt va sanani ko'rsatish (API kutmasdan)
+        setServerTimeFromLocal();
+
+        // Keyin API dan yangilash
         updateServerTime();
         setInterval(updateServerTime, 1000);
 
         // Set default date to today in UTC+2 timezone
-        const utc2Now = getUTC2Now();
-        const yyyy = utc2Now.getFullYear();
-        const mm = String(utc2Now.getMonth() + 1).padStart(2, '0');
-        const dd = String(utc2Now.getDate()).padStart(2, '0');
-        document.getElementById('scheduledDate').value = `${yyyy}-${mm}-${dd}`;
+        var utc2Now = getUTC2Now();
+        var yyyy = utc2Now.getFullYear();
+        var mm = String(utc2Now.getMonth() + 1).padStart(2, '0');
+        var dd = String(utc2Now.getDate()).padStart(2, '0');
+        document.getElementById('scheduledDate').value = yyyy + '-' + mm + '-' + dd;
 
         loadAccounts();
         loadScheduledPosts();
